@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { sha256HexAsync } from "@/lib/clientHash";
 import { stableStringify } from "@/lib/clientStableJson";
+import { lsKey } from "@/lib/constants";
 
 type EpochStatus = "commit" | "reveal" | "settled";
 
@@ -14,14 +15,14 @@ type Question = {
 };
 
 function getClientSecret(studentId: string) {
-  const key = `polyu_client_secret:${studentId}`;
+  const key = lsKey.clientSecret(studentId);
   const v = localStorage.getItem(key);
   if (!v) throw new Error("CLIENT_SECRET_MISSING (go to /login first)");
   return v;
 }
 
 async function deriveSalt(secret: string, epochId: string) {
-  const nonceKey = `polyu_nonce:${epochId}`;
+  const nonceKey = lsKey.nonce(epochId);
   const nonce = Number(localStorage.getItem(nonceKey) ?? "0") + 1;
   localStorage.setItem(nonceKey, String(nonce));
   return await sha256HexAsync(`${secret}${epochId}${nonce}`);
@@ -74,7 +75,7 @@ export default function MinePage() {
   const payload = useMemo(() => ({ answers }), [answers]);
 
   function persistCommitMaterial(params: { epochId: string; studentId: string; salt: string; payload: unknown }) {
-    const key = `polyu_commit_material:${params.studentId}`;
+    const key = lsKey.commitMaterial(params.studentId);
     localStorage.setItem(
       key,
       JSON.stringify({
@@ -87,7 +88,7 @@ export default function MinePage() {
   }
 
   function loadCommitMaterial(studentId: string) {
-    const key = `polyu_commit_material:${studentId}`;
+    const key = lsKey.commitMaterial(studentId);
     const raw = localStorage.getItem(key);
     if (!raw) return null;
     try {
@@ -179,7 +180,7 @@ export default function MinePage() {
   useEffect(() => {
     if (!me || !epoch) return;
     if (epoch.status !== "reveal") return;
-    const autoKey = `polyu_auto_reveal_done:${me}:${epoch.id}`;
+    const autoKey = lsKey.autoRevealDone(me, epoch.id);
     if (localStorage.getItem(autoKey)) return;
     const material = loadCommitMaterial(me);
     if (!material || material.epochId !== epoch.id) return;

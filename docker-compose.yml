@@ -5,11 +5,11 @@ services:
     environment:
       POSTGRES_USER: polyu
       POSTGRES_PASSWORD: polyu_password
-      POSTGRES_DB: polyu_ardi_sim
+      POSTGRES_DB: polyu_af5644_sim
     ports:
       - "5432:5432"
     volumes:
-      - polyu_ardi_sim_db:/var/lib/postgresql/data
+      - polyu_af5644_sim_db:/var/lib/postgresql/data
 
 volumes:
-  polyu_ardi_sim_db:
+  polyu_af5644_sim_db:

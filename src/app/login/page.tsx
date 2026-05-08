@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { lsKey } from "@/lib/constants";
 
 function getOrCreateClientSecret(studentId: string) {
-  const key = `polyu_client_secret:${studentId}`;
+  const key = lsKey.clientSecret(studentId);
   const existing = localStorage.getItem(key);
   if (existing) return existing;
   const bytes = crypto.getRandomValues(new Uint8Array(32));

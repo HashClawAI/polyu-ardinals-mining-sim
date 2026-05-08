@@ -18,10 +18,12 @@
 docker compose up -d
 ```
 
+若你之前用过旧版配置（库名 / 卷名不同），可 `docker compose down -v` 后按新的 `.env.example` 再建库；**生产或要保留数据时不要加 `-v`**。
+
 #### Option B: Prisma Dev (不依赖 Docker)
 
 ```bash
-npx prisma dev --name polyu_ardi_sim --detach
+npx prisma dev --name polyu_af5644_sim --detach
 ```
 
 ### 2) Configure env

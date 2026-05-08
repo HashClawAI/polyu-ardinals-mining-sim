@@ -1,17 +1,16 @@
 import { cookies } from "next/headers";
-
-const COOKIE_NAME = "polyu_student_id";
+import { STUDENT_COOKIE_NAME } from "@/lib/constants";
 
 export async function requireStudentId(): Promise<string> {
   const c = await cookies();
-  const studentId = c.get(COOKIE_NAME)?.value?.trim();
+  const studentId = c.get(STUDENT_COOKIE_NAME)?.value?.trim();
   if (!studentId) throw new Error("UNAUTHENTICATED");
   return studentId;
 }
 
 export async function setStudentIdCookie(studentId: string) {
   const c = await cookies();
-  c.set(COOKIE_NAME, studentId, {
+  c.set(STUDENT_COOKIE_NAME, studentId, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -22,6 +21,6 @@ export async function setStudentIdCookie(studentId: string) {
 
 export async function clearStudentIdCookie() {
   const c = await cookies();
-  c.set(COOKIE_NAME, "", { path: "/", maxAge: 0 });
+  c.set(STUDENT_COOKIE_NAME, "", { path: "/", maxAge: 0 });
 }
 
