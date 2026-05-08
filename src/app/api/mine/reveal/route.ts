@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireStudentId } from "@/lib/auth";
-import { computeCommitHash, ensureAssignment, ensureCurrentEpoch } from "@/lib/epoch";
+import { computeCommitHash, drawWinnerIndex, ensureAssignment, ensureCurrentEpoch, fetchDrandLatest } from "@/lib/epoch";
 
 const Body = z.object({
   payload: z.unknown(),
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
         },
       });
 
-      // Real-time grading + small instant reward (classroom UX)
+      // Real-time grading + realtime draw reward (classroom UX)
       const commit = await tx.commit.findUnique({
         where: { epochId_userId: { epochId: epoch.id, userId: studentId } },
       });
@@ -80,29 +80,68 @@ export async function POST(req: Request) {
         data: { isValid: true, isCorrect: allCorrect, gradedAt: new Date() },
       });
 
-      if (!allCorrect) return { reveal, instantRewarded: false };
+      if (!allCorrect) return { reveal, instantRewarded: false, drawWinner: null as string | null };
 
-      const reason = `epoch:${epoch.id} reveal_correct`;
-      const already = await tx.rewardTx.findFirst({
-        where: { epochId: epoch.id, userId: studentId, reason },
-        select: { id: true },
+      // If this epoch already did a realtime draw, don't repeat.
+      const drawReason = `epoch:${epoch.id} realtime_draw`;
+      const existingDraw = await tx.rewardTx.findFirst({
+        where: { epochId: epoch.id, reason: drawReason },
+        select: { id: true, userId: true },
       });
-      if (!already) {
-        await tx.rewardTx.create({
-          data: {
-            epochId: epoch.id,
-            userId: studentId,
-            amount: 1,
-            reason,
-          },
-        });
-        return { reveal, instantRewarded: true };
+      if (existingDraw) {
+        return { reveal, instantRewarded: false, drawWinner: existingDraw.userId };
       }
 
-      return { reveal, instantRewarded: false };
+      // Fix randomness once (drand) so the draw is reproducible
+      const epochFresh = await tx.epoch.findUnique({ where: { id: epoch.id } });
+      let randomness = epochFresh?.drandRandomness ?? null;
+      if (!randomness) {
+        const drand = await fetchDrandLatest();
+        randomness = drand.randomness;
+        await tx.epoch.update({
+          where: { id: epoch.id },
+          data: {
+            drandRound: drand.round,
+            drandRandomness: drand.randomness,
+            drandSignature: drand.signature,
+            drandBeaconId: "public",
+          },
+        });
+      }
+
+      // Candidates = all valid+correct reveals in this epoch (sorted by userId)
+      const candidates = await tx.reveal.findMany({
+        where: { epochId: epoch.id, isValid: true, isCorrect: true },
+        select: { userId: true },
+      });
+      const uniqueSorted = Array.from(new Set(candidates.map((c) => c.userId))).sort();
+      const idx = drawWinnerIndex({
+        randomnessHex: randomness!,
+        epochId: epoch.id,
+        questionId: "epoch",
+        candidatesCount: uniqueSorted.length,
+      });
+      if (idx === null) return { reveal, instantRewarded: false, drawWinner: null as string | null };
+      const winnerId = uniqueSorted[idx] ?? null;
+      if (!winnerId) return { reveal, instantRewarded: false, drawWinner: null as string | null };
+
+      await tx.rewardTx.create({
+        data: {
+          epochId: epoch.id,
+          userId: winnerId,
+          amount: 1,
+          reason: drawReason,
+        },
+      });
+      return { reveal, instantRewarded: winnerId === studentId, drawWinner: winnerId };
     });
 
-    return NextResponse.json({ ok: true, reveal: result.reveal, instantRewarded: result.instantRewarded });
+    return NextResponse.json({
+      ok: true,
+      reveal: result.reveal,
+      instantRewarded: result.instantRewarded,
+      drawWinner: result.drawWinner,
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "UNKNOWN";
     const status = msg === "UNAUTHENTICATED" ? 401 : 500;

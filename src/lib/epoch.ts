@@ -140,16 +140,25 @@ async function settleEpoch(epochId: string) {
     if (!epoch) return;
     if (epoch.status === "settled") return;
 
-    const drand = await fetchDrandLatest();
-    await tx.epoch.update({
-      where: { id: epochId },
-      data: {
-        drandRound: drand.round,
-        drandRandomness: drand.randomness,
-        drandSignature: drand.signature,
-        drandBeaconId: "public",
-      },
-    });
+    const drand =
+      epoch.drandRandomness && epoch.drandRound && epoch.drandSignature
+        ? {
+            round: epoch.drandRound,
+            randomness: epoch.drandRandomness,
+            signature: epoch.drandSignature,
+          }
+        : await fetchDrandLatest();
+    if (!epoch.drandRandomness) {
+      await tx.epoch.update({
+        where: { id: epochId },
+        data: {
+          drandRound: drand.round,
+          drandRandomness: drand.randomness,
+          drandSignature: drand.signature,
+          drandBeaconId: "public",
+        },
+      });
+    }
 
     // Grade reveals
     const reveals = await tx.reveal.findMany({ where: { epochId } });
