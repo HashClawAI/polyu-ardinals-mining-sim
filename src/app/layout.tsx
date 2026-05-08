@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PolyU Ardinals Mining Sim",
+  title: "Mining Simulation- PolyU AF5644",
   description: "Teaching simulation: commit→reveal→verifiable randomness→rewards",
 };
 
@@ -33,8 +33,8 @@ export default function RootLayout({
         <header className="border-b bg-white">
           <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-3">
             <div className="flex items-center gap-3">
-              <Link href="/" className="font-semibold tracking-tight">
-                PolyU Mining Sim
+              <Link href="/" className="max-w-[min(18rem,55vw)] text-sm font-semibold leading-snug tracking-tight sm:text-base sm:max-w-none">
+                Mining Simulation- PolyU AF5644
               </Link>
               <BlockIndicator />
             </div>

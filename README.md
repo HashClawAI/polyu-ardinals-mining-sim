@@ -1,4 +1,4 @@
-## PolyU Ardinals Mining Sim
+## Mining Simulation- PolyU AF5644
 
 教学用“模拟挖矿”网站：学生用学号登录（学号=公钥标识），按 epoch 回合制执行 commit→reveal→可验证随机开奖→发币。
 

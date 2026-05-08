@@ -1,4 +1,4 @@
-# PolyU Ardinals Mining Sim — Rules
+# Mining Simulation- PolyU AF5644 — Rules
 
 本网站是一个“类 Ardinals”的**教学版模拟挖矿**：不拼算力，按回合提交承诺（commit），再公开答案（reveal），最后用**可验证随机数**抽奖发放代币奖励。
 
