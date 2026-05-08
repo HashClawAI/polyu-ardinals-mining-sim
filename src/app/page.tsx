@@ -4,7 +4,7 @@ export default function Home() {
       <section className="rounded-2xl border bg-white p-6">
         <h1 className="text-2xl font-semibold tracking-tight">Mining Simulation- PolyU AF5644</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-700">
-          A classroom simulation of Ardinals-style mining: each epoch you <b>commit</b> a hash of
+          A classroom commit–reveal mining simulation: each epoch you <b>commit</b> a hash of
           your answers, then <b>reveal</b> the answers + salt, and the system uses <b>drand</b>{" "}
           public randomness to draw winners and mint rewards.
         </p>
