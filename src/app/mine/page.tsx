@@ -68,6 +68,30 @@ export default function MinePage() {
 
   const payload = useMemo(() => ({ answers }), [answers]);
 
+  function persistCommitMaterial(params: { epochId: string; studentId: string; salt: string; payload: unknown }) {
+    const key = `polyu_commit_material:${params.studentId}`;
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        epochId: params.epochId,
+        salt: params.salt,
+        payload: params.payload,
+        savedAt: Date.now(),
+      }),
+    );
+  }
+
+  function loadCommitMaterial(studentId: string) {
+    const key = `polyu_commit_material:${studentId}`;
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as { epochId: string; salt: string; payload: any; savedAt: number };
+    } catch {
+      return null;
+    }
+  }
+
   async function doCommit() {
     setErr(null);
     setMsg(null);
@@ -82,6 +106,7 @@ export default function MinePage() {
 
     setSalt(s);
     setCommitHash(h);
+    persistCommitMaterial({ epochId: epoch.id, studentId: me, salt: s, payload });
 
     const res = await fetch("/api/mine/commit", {
       method: "POST",
@@ -98,16 +123,32 @@ export default function MinePage() {
     setMsg(null);
     if (!epoch) throw new Error("NO_EPOCH");
     if (epoch.status !== "reveal") throw new Error("NOT_IN_REVEAL_PHASE");
-    if (!salt) throw new Error("MISSING_SALT (commit first on this device)");
+    if (!me) throw new Error("NOT_LOGGED_IN");
+
+    let s = salt;
+    let p: unknown = payload;
+    if (!s) {
+      const material = loadCommitMaterial(me);
+      if (material && material.epochId === epoch.id) {
+        s = material.salt;
+        p = material.payload;
+        setSalt(s);
+      }
+    }
+    if (!s) throw new Error("MISSING_SALT (commit first on this device)");
 
     const res = await fetch("/api/mine/reveal", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ payload, salt }),
+      body: JSON.stringify({ payload: p, salt: s }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? "REVEAL_FAILED");
-    setMsg("Revealed.");
+    setMsg(
+      data.instantRewarded
+        ? `Revealed. You won +1 (winner=${data.drawWinner ?? "—"}).`
+        : `Revealed. Winner=${data.drawWinner ?? "—"}.`,
+    );
   }
 
   async function doTick() {
@@ -127,6 +168,22 @@ export default function MinePage() {
     commitEndsAtMs === null ? null : Math.max(0, Math.ceil((commitEndsAtMs - nowMs) / 1000));
   const revealLeftSec =
     revealEndsAtMs === null ? null : Math.max(0, Math.ceil((revealEndsAtMs - nowMs) / 1000));
+
+  // Auto-reveal: if we already have (epochId,salt,payload) saved locally, submit reveal when phase starts.
+  useEffect(() => {
+    if (!me || !epoch) return;
+    if (epoch.status !== "reveal") return;
+    const autoKey = `polyu_auto_reveal_done:${me}:${epoch.id}`;
+    if (localStorage.getItem(autoKey)) return;
+    const material = loadCommitMaterial(me);
+    if (!material || material.epochId !== epoch.id) return;
+    localStorage.setItem(autoKey, "1");
+    doReveal().catch(() => {
+      // If it fails transiently, allow retry later
+      localStorage.removeItem(autoKey);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me, epoch?.id, epoch?.status]);
 
   if (err) {
     return (
