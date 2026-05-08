@@ -1,17 +1,30 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { sha256HexAsync } from "@/lib/clientHash";
 import { stableStringify } from "@/lib/clientStableJson";
 import { lsKey } from "@/lib/constants";
 
 type EpochStatus = "commit" | "reveal" | "settled";
 
+type EpochDto = {
+  id: string;
+  status: EpochStatus;
+  blockNumber: number | null;
+  commitEndsAt: string;
+  revealEndsAt: string;
+  drandRound?: number | null;
+  drandRandomness?: string | null;
+};
+
+type Choice = { id: string; text: string };
+type McqOptions = { choices: Choice[] };
+
 type Question = {
   id: string;
   type: "mcq" | "short";
   prompt: string;
-  options: any;
+  options: McqOptions | null;
 };
 
 function getClientSecret(studentId: string) {
@@ -30,7 +43,7 @@ async function deriveSalt(secret: string, epochId: string) {
 
 export default function MinePage() {
   const [me, setMe] = useState<string | null>(null);
-  const [epoch, setEpoch] = useState<any>(null);
+  const [epoch, setEpoch] = useState<EpochDto | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [commitHash, setCommitHash] = useState<string>("");
@@ -52,8 +65,8 @@ export default function MinePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "LOAD_FAILED");
       if (!stop) {
-        setEpoch(data.epoch);
-        setQuestions(data.questions);
+        setEpoch((data.epoch ?? null) as EpochDto | null);
+        setQuestions((data.questions ?? []) as Question[]);
         setRealtimeDrawWinner(
           typeof data.realtimeDrawWinner === "string" ? data.realtimeDrawWinner : null,
         );
@@ -92,7 +105,7 @@ export default function MinePage() {
     const raw = localStorage.getItem(key);
     if (!raw) return null;
     try {
-      return JSON.parse(raw) as { epochId: string; salt: string; payload: any; savedAt: number };
+      return JSON.parse(raw) as { epochId: string; salt: string; payload: unknown; savedAt: number };
     } catch {
       return null;
     }
@@ -124,7 +137,7 @@ export default function MinePage() {
     setMsg("Committed.");
   }
 
-  async function doReveal() {
+  const doReveal = useCallback(async () => {
     setErr(null);
     setMsg(null);
     if (!epoch) throw new Error("NO_EPOCH");
@@ -156,16 +169,7 @@ export default function MinePage() {
         ? `Revealed. You won +1 (winner=${data.drawWinner ?? "—"}, block ${bn}).`
         : `Revealed. Winner=${data.drawWinner ?? "—"}, block ${bn}.`,
     );
-  }
-
-  async function doTick() {
-    const res = await fetch("/api/cron/tick", { method: "POST" });
-    const data = await res.json();
-    setMsg(`Tick: ${JSON.stringify(data.result)}`);
-    // refresh epoch
-    const e2 = await fetch("/api/epoch/current").then((r) => r.json());
-    setEpoch(e2.epoch);
-  }
+  }, [epoch, me, payload, salt]);
 
   const status = (epoch?.status as EpochStatus | undefined) ?? undefined;
   const commitEndsAtMs = epoch?.commitEndsAt ? new Date(epoch.commitEndsAt).getTime() : null;
@@ -185,12 +189,15 @@ export default function MinePage() {
     const material = loadCommitMaterial(me);
     if (!material || material.epochId !== epoch.id) return;
     localStorage.setItem(autoKey, "1");
-    doReveal().catch(() => {
-      // If it fails transiently, allow retry later
-      localStorage.removeItem(autoKey);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [me, epoch?.id, epoch?.status]);
+    // Trigger asynchronously to satisfy `react-hooks/set-state-in-effect`.
+    const t = window.setTimeout(() => {
+      doReveal().catch(() => {
+        // If it fails transiently, allow retry later
+        localStorage.removeItem(autoKey);
+      });
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [doReveal, epoch, me]);
 
   if (err) {
     return (
@@ -278,13 +285,6 @@ export default function MinePage() {
           >
             Reveal
           </button>
-          <button
-            onClick={() => doTick().catch((e) => setErr(String(e)))}
-            className="rounded-xl border px-4 py-2 text-sm font-medium"
-            title="Dev helper: advance phase / settle"
-          >
-            Tick (dev)
-          </button>
         </div>
 
         {msg ? <div className="mt-3 text-sm text-emerald-700">{msg}</div> : null}
@@ -308,7 +308,7 @@ export default function MinePage() {
               <div className="text-sm font-medium">{q.prompt}</div>
               {q.type === "mcq" ? (
                 <div className="mt-3 grid gap-2">
-                  {(q.options?.choices ?? []).map((c: any) => (
+                  {(q.options?.choices ?? []).map((c) => (
                     <label key={c.id} className="flex items-center gap-2 text-sm">
                       <input
                         type="radio"
