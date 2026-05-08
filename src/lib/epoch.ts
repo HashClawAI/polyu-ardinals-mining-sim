@@ -7,8 +7,6 @@ const DEFAULT_COMMIT_SECONDS = 150;
 const DEFAULT_REVEAL_SECONDS = 90;
 const DEFAULT_QUESTIONS_MIN = 1;
 const DEFAULT_QUESTIONS_MAX = 3;
-const DEFAULT_REWARD_AMOUNT = 10;
-const DEFAULT_MAX_REWARDS_PER_EPOCH = 1;
 
 export type DrandBeacon = {
   round: number;
@@ -206,52 +204,9 @@ async function settleEpoch(epochId: string) {
       });
     }
 
-    // Draw winners per question
-    const assignments = await tx.assignment.findMany({ where: { epochId } });
-    const questionIds = Array.from(new Set(assignments.flatMap((a) => a.questionIds)));
-
-    const randomnessHex = drand.randomness;
-    const rewardedUsers = new Set<string>();
-
-    for (const qId of questionIds) {
-      const candidates = await tx.reveal.findMany({
-        where: { epochId, isValid: true, isCorrect: true },
-        select: { userId: true, payload: true },
-      });
-
-      // Candidate must have been assigned this question
-      const filtered: string[] = [];
-      for (const c of candidates) {
-        const asg = assignments.find((a) => a.userId === c.userId);
-        if (asg?.questionIds.includes(qId)) filtered.push(c.userId);
-      }
-
-      const uniqueSorted = Array.from(new Set(filtered)).sort();
-      const idx = drawWinnerIndex({
-        randomnessHex,
-        epochId,
-        questionId: qId,
-        candidatesCount: uniqueSorted.length,
-      });
-      if (idx === null) continue;
-
-      const winnerId = uniqueSorted[idx];
-      if (!winnerId) continue;
-      if (rewardedUsers.has(winnerId)) continue;
-      if (rewardedUsers.size >= DEFAULT_MAX_REWARDS_PER_EPOCH * uniqueSorted.length) {
-        // soft cap, prevents runaway if configs change
-      }
-
-      rewardedUsers.add(winnerId);
-      await tx.rewardTx.create({
-        data: {
-          epochId,
-          userId: winnerId,
-          amount: DEFAULT_REWARD_AMOUNT,
-          reason: `epoch:${epochId} question:${qId} win`,
-        },
-      });
-    }
+    // Token rewards are issued once per epoch during reveal (`realtime_draw`, +1).
+    // Do not mint again here — old per-question settle rewards (+10 each) summed with realtime (+1)
+    // and produced misleading leaderboard totals (e.g. 11 per block).
 
     // Commit a \"block\": assign blockNumber and bump global blockHeight.
     const system = await tx.systemState.upsert({
