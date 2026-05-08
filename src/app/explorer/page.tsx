@@ -74,10 +74,11 @@ export default function ExplorerPage() {
       <div className="rounded-2xl border bg-white p-6">
         <h1 className="text-xl font-semibold">Block explorer</h1>
         <p className="mt-2 text-sm text-zinc-700">
-          Leaderboard totals all minted tokens as soon as a <code className="text-xs">RewardTx</code> exists.
-          Rows here only appear <b>after</b> an epoch settles and gets a <code className="text-xs">blockNumber</code>.
-          If reveal already ran the draw but the epoch hasn&apos;t settled yet, those mints appear in{' '}
-          <b>Pending mints</b> below—not in the numbered blocks until tick/settle completes.
+          When the realtime draw mints a <code className="text-xs">RewardTx</code>, the app{' '}
+          <b>immediately</b> assigns the next <code className="text-xs">blockNumber</code> and bumps global
+          height—so winner, mint, and block row stay in sync with the leaderboard. If nobody wins a draw
+          this round, the block is created at settlement instead. Legacy rows may still show under{' '}
+          <b>Pending mints</b> until the next reveal hits the backfill path or you run settle.
         </p>
         {total !== null ? (
           <p className="mt-2 text-xs text-zinc-500">

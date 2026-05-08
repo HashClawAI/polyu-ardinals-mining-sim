@@ -35,6 +35,8 @@ export async function GET() {
       epoch: {
         id: epoch.id,
         status: epoch.status,
+        /** 开奖并 mint 后即写入，可与 Explorer / 全局 Block 对齐（epoch 结束前也可已有编号） */
+        blockNumber: epoch.blockNumber ?? null,
         commitEndsAt: epoch.commitEndsAt,
         revealEndsAt: epoch.revealEndsAt,
         drandRound: epoch.drandRound,

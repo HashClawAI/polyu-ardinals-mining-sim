@@ -149,10 +149,11 @@ export default function MinePage() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? "REVEAL_FAILED");
+    const bn = typeof data.drawBlockNumber === "number" ? `#${data.drawBlockNumber}` : "—";
     setMsg(
       data.instantRewarded
-        ? `Revealed. You won +1 (winner=${data.drawWinner ?? "—"}).`
-        : `Revealed. Winner=${data.drawWinner ?? "—"}.`,
+        ? `Revealed. You won +1 (winner=${data.drawWinner ?? "—"}, block ${bn}).`
+        : `Revealed. Winner=${data.drawWinner ?? "—"}, block ${bn}.`,
     );
   }
 
@@ -211,7 +212,11 @@ export default function MinePage() {
           <div className="text-sm text-zinc-700">
             Epoch: <code className="rounded bg-zinc-100 px-1">{epoch?.id ?? "—"}</code>{" "}
             Status:{" "}
-            <code className="rounded bg-zinc-100 px-1">{(epoch?.status as EpochStatus) ?? "—"}</code>
+            <code className="rounded bg-zinc-100 px-1">{(epoch?.status as EpochStatus) ?? "—"}</code>{" "}
+            Block:{" "}
+            <code className="rounded bg-zinc-100 px-1">
+              {typeof epoch?.blockNumber === "number" ? epoch.blockNumber : "—"}
+            </code>
           </div>
         </div>
 
@@ -229,6 +234,11 @@ export default function MinePage() {
                 <div className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-emerald-900">
                   Round winner (realtime draw):{" "}
                   <code className="rounded bg-white px-1 font-mono">{realtimeDrawWinner}</code>
+                  {typeof epoch?.blockNumber === "number" ? (
+                    <span className="ml-2 text-sm text-emerald-800">
+                      · Block <span className="font-mono">{epoch.blockNumber}</span>
+                    </span>
+                  ) : null}
                 </div>
               ) : (
                 <div className="mt-2 text-zinc-500">

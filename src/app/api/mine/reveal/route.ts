@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireStudentId } from "@/lib/auth";
 import {
+  anchorNextBlockForEpochIfNeeded,
   computeCommitHash,
   drawWinnerIndex,
   ensureCurrentEpoch,
@@ -55,6 +56,7 @@ export async function POST(req: Request) {
           reveal,
           instantRewarded: false,
           drawWinner: null as string | null,
+          drawBlockNumber: null as number | null,
           debug: { isValid: false, isCorrect: false, reason: "MISSING_COMMIT" as const },
         };
       }
@@ -74,6 +76,7 @@ export async function POST(req: Request) {
           reveal,
           instantRewarded: false,
           drawWinner: null as string | null,
+          drawBlockNumber: null as number | null,
           debug: { isValid: false, isCorrect: false, reason: "COMMIT_MISMATCH" as const },
         };
       }
@@ -120,6 +123,7 @@ export async function POST(req: Request) {
           reveal,
           instantRewarded: false,
           drawWinner: null as string | null,
+          drawBlockNumber: null as number | null,
           debug: { isValid: true, isCorrect: false, reason: "ANSWER_WRONG" as const },
         };
 
@@ -130,10 +134,12 @@ export async function POST(req: Request) {
         select: { id: true, userId: true },
       });
       if (existingDraw) {
+        const drawBlockNumber = await anchorNextBlockForEpochIfNeeded(tx, epoch.id);
         return {
           reveal,
           instantRewarded: existingDraw.userId === studentId,
           drawWinner: existingDraw.userId,
+          drawBlockNumber,
           debug: {
             isValid: true,
             isCorrect: true,
@@ -177,6 +183,7 @@ export async function POST(req: Request) {
           reveal,
           instantRewarded: false,
           drawWinner: null as string | null,
+          drawBlockNumber: null as number | null,
           debug: {
             isValid: true,
             isCorrect: true,
@@ -190,6 +197,7 @@ export async function POST(req: Request) {
           reveal,
           instantRewarded: false,
           drawWinner: null as string | null,
+          drawBlockNumber: null as number | null,
           debug: {
             isValid: true,
             isCorrect: true,
@@ -206,10 +214,12 @@ export async function POST(req: Request) {
           reason: drawReason,
         },
       });
+      const drawBlockNumber = await anchorNextBlockForEpochIfNeeded(tx, epoch.id);
       return {
         reveal,
         instantRewarded: winnerId === studentId,
         drawWinner: winnerId,
+        drawBlockNumber,
         debug: {
           isValid: true,
           isCorrect: true,
@@ -224,6 +234,7 @@ export async function POST(req: Request) {
       reveal: result.reveal,
       instantRewarded: result.instantRewarded,
       drawWinner: result.drawWinner,
+      drawBlockNumber: result.drawBlockNumber ?? null,
       debug: result.debug,
     });
   } catch (e) {

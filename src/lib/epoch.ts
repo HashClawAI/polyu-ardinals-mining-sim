@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { sha256Hex, hexToBigInt } from "@/lib/crypto";
 import { stableStringify } from "@/lib/stableJson";
@@ -122,6 +123,41 @@ export function drawWinnerIndex(params: {
   return Number(n % BigInt(params.candidatesCount));
 }
 
+/**
+ * Assign the next global block # to this epoch (once) and bump `SystemState.blockHeight`.
+ * Idempotent: if `Epoch.blockNumber` is already set, returns that number and does not bump again.
+ * Call this when a `realtime_draw` RewardTx is minted so explorer == leaderboard immediately;
+ * also call at settle for epochs with no draw (no RewardTx) so every round still gets a block row.
+ */
+export async function anchorNextBlockForEpochIfNeeded(
+  tx: Prisma.TransactionClient,
+  epochId: string,
+): Promise<number | null> {
+  const e = await tx.epoch.findUnique({
+    where: { id: epochId },
+    select: { blockNumber: true },
+  });
+  if (!e) return null;
+  if (e.blockNumber !== null) return e.blockNumber;
+
+  const system = await tx.systemState.upsert({
+    where: { id: "global" },
+    update: {},
+    create: { id: "global", blockHeight: 0 },
+    select: { blockHeight: true },
+  });
+  const n = system.blockHeight;
+  await tx.epoch.update({
+    where: { id: epochId },
+    data: { blockNumber: n },
+  });
+  await tx.systemState.update({
+    where: { id: "global" },
+    data: { blockHeight: n + 1 },
+  });
+  return n;
+}
+
 export async function tickAndSettle(now = new Date()) {
   const epoch = await ensureCurrentEpoch(now);
 
@@ -210,23 +246,12 @@ async function settleEpoch(epochId: string) {
     }
 
     // Token rewards are issued once per epoch during reveal (`realtime_draw`, +1).
-    // Do not mint again here — old per-question settle rewards (+10 each) summed with realtime (+1)
-    // and produced misleading leaderboard totals (e.g. 11 per block).
+    // Block # is usually anchored at draw time; if nobody triggered a draw, anchor here.
+    await anchorNextBlockForEpochIfNeeded(tx, epochId);
 
-    // Commit a \"block\": assign blockNumber and bump global blockHeight.
-    const system = await tx.systemState.upsert({
-      where: { id: "global" },
-      update: {},
-      create: { id: "global", blockHeight: 0 },
-      select: { blockHeight: true },
-    });
     await tx.epoch.update({
       where: { id: epochId },
-      data: { status: "settled", blockNumber: system.blockHeight },
-    });
-    await tx.systemState.update({
-      where: { id: "global" },
-      data: { blockHeight: system.blockHeight + 1 },
+      data: { status: "settled" },
     });
   });
 }
