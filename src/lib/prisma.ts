@@ -1,12 +1,13 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
-import crypto from "node:crypto";
 
 declare global {
   // eslint-disable-next-line no-var
   var prisma: PrismaClient | undefined;
 }
+
+let stmtCounter = 0;
 
 function createClient() {
   const connectionString = process.env.DATABASE_URL;
@@ -15,10 +16,10 @@ function createClient() {
   const pool = new Pool({ connectionString });
   const adapter = new PrismaPg(pool, {
     statementNameGenerator: (q) => {
-      const text = typeof q.sql === "string" ? q.sql : "";
+      // Avoid statement name collisions across pooled connections by always generating a unique name.
+      stmtCounter = (stmtCounter + 1) % 1_000_000_000;
       const paramsLen = Array.isArray(q.args) ? q.args.length : 0;
-      const h = crypto.createHash("sha256").update(`${text}::${paramsLen}`).digest("hex").slice(0, 16);
-      return `p_${h}`;
+      return `p_${Date.now().toString(36)}_${stmtCounter.toString(36)}_${paramsLen}`;
     },
   });
 
