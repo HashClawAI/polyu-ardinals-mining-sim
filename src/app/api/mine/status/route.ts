@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireStudentId } from "@/lib/auth";
-import { ensureCurrentEpoch } from "@/lib/epoch";
+import { ensureCurrentEpoch, tickAndSettle } from "@/lib/epoch";
 
 export async function GET() {
   try {
     const studentId = await requireStudentId();
+    // Auto-advance phases when the time window has elapsed.
+    await tickAndSettle();
     const epoch = await ensureCurrentEpoch();
 
     const [commit, reveal, rewards, balanceAgg] = await Promise.all([
