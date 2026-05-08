@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { BlockIndicator } from "@/app/_components/BlockIndicator";
@@ -32,24 +33,27 @@ export default function RootLayout({
         <header className="border-b bg-white">
           <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-3">
             <div className="flex items-center gap-3">
-              <a href="/" className="font-semibold tracking-tight">
+              <Link href="/" className="font-semibold tracking-tight">
                 PolyU Mining Sim
-              </a>
+              </Link>
               <BlockIndicator />
             </div>
             <nav className="flex items-center gap-4 text-sm text-zinc-700">
-              <a className="hover:text-zinc-950" href="/mine">
+              <Link className="hover:text-zinc-950" href="/mine">
                 Mine
-              </a>
-              <a className="hover:text-zinc-950" href="/wallet">
+              </Link>
+              <Link className="hover:text-zinc-950" href="/wallet">
                 Wallet
-              </a>
-              <a className="hover:text-zinc-950" href="/leaderboard">
+              </Link>
+              <Link className="hover:text-zinc-950" href="/leaderboard">
                 Leaderboard
-              </a>
-              <a className="hover:text-zinc-950" href="/verify">
+              </Link>
+              <Link className="hover:text-zinc-950" href="/verify">
                 Verify
-              </a>
+              </Link>
+              <Link className="hover:text-zinc-950" href="/explorer">
+                Explorer
+              </Link>
             </nav>
           </div>
         </header>
