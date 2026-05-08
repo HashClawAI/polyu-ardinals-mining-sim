@@ -45,7 +45,12 @@ export async function POST(req: Request) {
           where: { id: reveal.id },
           data: { isValid: false, isCorrect: false, gradedAt: new Date() },
         });
-        return { reveal, instantRewarded: false };
+        return {
+          reveal,
+          instantRewarded: false,
+          drawWinner: null as string | null,
+          debug: { isValid: false, isCorrect: false, reason: "MISSING_COMMIT" as const },
+        };
       }
 
       const computed = computeCommitHash({
@@ -59,7 +64,12 @@ export async function POST(req: Request) {
           where: { id: reveal.id },
           data: { isValid: false, isCorrect: false, gradedAt: new Date() },
         });
-        return { reveal, instantRewarded: false };
+        return {
+          reveal,
+          instantRewarded: false,
+          drawWinner: null as string | null,
+          debug: { isValid: false, isCorrect: false, reason: "COMMIT_MISMATCH" as const },
+        };
       }
 
       // IMPORTANT: keep everything inside this transaction (avoid global prisma client here)
@@ -99,7 +109,13 @@ export async function POST(req: Request) {
         data: { isValid: true, isCorrect: allCorrect, gradedAt: new Date() },
       });
 
-      if (!allCorrect) return { reveal, instantRewarded: false, drawWinner: null as string | null };
+      if (!allCorrect)
+        return {
+          reveal,
+          instantRewarded: false,
+          drawWinner: null as string | null,
+          debug: { isValid: true, isCorrect: false, reason: "ANSWER_WRONG" as const },
+        };
 
       // If this epoch already did a realtime draw, don't repeat.
       const drawReason = `epoch:${epoch.id} realtime_draw`;
@@ -108,7 +124,17 @@ export async function POST(req: Request) {
         select: { id: true, userId: true },
       });
       if (existingDraw) {
-        return { reveal, instantRewarded: false, drawWinner: existingDraw.userId };
+        return {
+          reveal,
+          instantRewarded: existingDraw.userId === studentId,
+          drawWinner: existingDraw.userId,
+          debug: {
+            isValid: true,
+            isCorrect: true,
+            reason: "DRAW_ALREADY_DONE" as const,
+            candidatesCount: -1,
+          },
+        };
       }
 
       // Fix randomness once (drand) so the draw is reproducible
@@ -140,9 +166,31 @@ export async function POST(req: Request) {
         questionId: "epoch",
         candidatesCount: uniqueSorted.length,
       });
-      if (idx === null) return { reveal, instantRewarded: false, drawWinner: null as string | null };
+      if (idx === null)
+        return {
+          reveal,
+          instantRewarded: false,
+          drawWinner: null as string | null,
+          debug: {
+            isValid: true,
+            isCorrect: true,
+            reason: "NO_CANDIDATES" as const,
+            candidatesCount: uniqueSorted.length,
+          },
+        };
       const winnerId = uniqueSorted[idx] ?? null;
-      if (!winnerId) return { reveal, instantRewarded: false, drawWinner: null as string | null };
+      if (!winnerId)
+        return {
+          reveal,
+          instantRewarded: false,
+          drawWinner: null as string | null,
+          debug: {
+            isValid: true,
+            isCorrect: true,
+            reason: "NO_WINNER" as const,
+            candidatesCount: uniqueSorted.length,
+          },
+        };
 
       await tx.rewardTx.create({
         data: {
@@ -152,7 +200,17 @@ export async function POST(req: Request) {
           reason: drawReason,
         },
       });
-      return { reveal, instantRewarded: winnerId === studentId, drawWinner: winnerId };
+      return {
+        reveal,
+        instantRewarded: winnerId === studentId,
+        drawWinner: winnerId,
+        debug: {
+          isValid: true,
+          isCorrect: true,
+          reason: "DRAW_DONE" as const,
+          candidatesCount: uniqueSorted.length,
+        },
+      };
     });
 
     return NextResponse.json({
@@ -160,6 +218,7 @@ export async function POST(req: Request) {
       reveal: result.reveal,
       instantRewarded: result.instantRewarded,
       drawWinner: result.drawWinner,
+      debug: result.debug,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "UNKNOWN";
