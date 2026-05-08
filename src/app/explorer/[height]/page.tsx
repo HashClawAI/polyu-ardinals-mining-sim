@@ -4,12 +4,21 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
+type RewardRow = {
+  userId: string;
+  amount: number;
+  reason: string;
+  createdAt: string;
+};
+
 type Detail = {
   blockNumber: number;
   epochId: string;
   status: string;
   winnerUserId: string | null;
   rewardCreatedAt: string | null;
+  tokensMintedTotal?: number;
+  rewards?: RewardRow[];
   drandRound: number | null;
   drandRandomness: string | null;
   drandSignature: string | null;
@@ -70,7 +79,7 @@ export default function ExplorerBlockPage() {
       </div>
 
       <section className="rounded-2xl border bg-white p-6">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-500">Winner</h2>
+        <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-500">Draw winner (realtime)</h2>
         <div className="mt-2 text-lg font-mono">
           {block.winnerUserId ? (
             <code className="rounded bg-emerald-50 px-2 py-1 text-emerald-900">{block.winnerUserId}</code>
@@ -81,7 +90,29 @@ export default function ExplorerBlockPage() {
         {block.rewardCreatedAt ? (
           <p className="mt-2 text-xs text-zinc-500">Minted at {new Date(block.rewardCreatedAt).toLocaleString()}</p>
         ) : null}
+        {typeof block.tokensMintedTotal === "number" ? (
+          <p className="mt-2 text-xs text-zinc-600">
+            Total tokens minted on this block (all <code className="text-[10px]">RewardTx</code>):{" "}
+            <span className="font-mono font-medium">{block.tokensMintedTotal}</span>
+          </p>
+        ) : null}
       </section>
+
+      {block.rewards && block.rewards.length > 0 ? (
+        <section className="rounded-2xl border bg-white p-6">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-500">All mints (this block)</h2>
+          <ul className="mt-3 grid gap-2 text-xs">
+            {block.rewards.map((r, i) => (
+              <li key={`${r.reason}-${i}`} className="rounded-lg border border-zinc-100 bg-zinc-50/80 px-3 py-2">
+                <span className="font-mono font-medium">{r.userId}</span>{" "}
+                <span className="text-zinc-600">+{r.amount}</span>
+                <div className="mt-1 break-all font-mono text-[10px] text-zinc-500">{r.reason}</div>
+                <div className="mt-0.5 text-[10px] text-zinc-400">{new Date(r.createdAt).toLocaleString()}</div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="rounded-2xl border bg-white p-6">
         <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-500">Epoch</h2>

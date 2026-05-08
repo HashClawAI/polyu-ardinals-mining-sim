@@ -8,13 +8,33 @@ type BlockRow = {
   epochId: string;
   status: string;
   winnerUserId: string | null;
+  tokensMintedTotal?: number;
+  rewardTxCount?: number;
   drandRound: number | null;
   settledApproxAt: string;
+};
+
+type PendingRow = {
+  epochId: string;
+  epochStatus: string;
+  userId: string;
+  amount: number;
+  reason: string;
+  createdAt: string;
+  revealEndsAt: string;
+};
+
+type Reconciliation = {
+  mintGrandTotal: number;
+  mintSumEpochAttachedToConfirmedBlock: number;
+  mintSumEpochNotYetAnchoredAsBlock: number;
 };
 
 export default function ExplorerPage() {
   const [blocks, setBlocks] = useState<BlockRow[] | null>(null);
   const [total, setTotal] = useState<number | null>(null);
+  const [pending, setPending] = useState<PendingRow[]>([]);
+  const [recon, setRecon] = useState<Reconciliation | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -26,6 +46,15 @@ export default function ExplorerPage() {
       if (!stop) {
         setBlocks(json.blocks ?? []);
         setTotal(typeof json.total === "number" ? json.total : null);
+        setPending(Array.isArray(json.pendingRewards) ? json.pendingRewards : []);
+        setRecon(
+          json.reconciliation &&
+            typeof json.reconciliation.mintGrandTotal === "number" &&
+            typeof json.reconciliation.mintSumEpochAttachedToConfirmedBlock === "number" &&
+            typeof json.reconciliation.mintSumEpochNotYetAnchoredAsBlock === "number"
+            ? json.reconciliation
+            : null,
+        );
       }
     }
     load().catch((e) => setErr(e instanceof Error ? e.message : "UNKNOWN"));
@@ -45,16 +74,62 @@ export default function ExplorerPage() {
       <div className="rounded-2xl border bg-white p-6">
         <h1 className="text-xl font-semibold">Block explorer</h1>
         <p className="mt-2 text-sm text-zinc-700">
-          Each numbered block corresponds to one settled epoch. The{' '}
-          <b>winner</b> is the student ID minted +1 token in that epoch&apos;s realtime draw (commit→reveal,
-          verifiable randomness).
+          Leaderboard totals all minted tokens as soon as a <code className="text-xs">RewardTx</code> exists.
+          Rows here only appear <b>after</b> an epoch settles and gets a <code className="text-xs">blockNumber</code>.
+          If reveal already ran the draw but the epoch hasn&apos;t settled yet, those mints appear in{' '}
+          <b>Pending mints</b> below—not in the numbered blocks until tick/settle completes.
         </p>
         {total !== null ? (
           <p className="mt-2 text-xs text-zinc-500">
             Total blocks chained: <span className="font-mono">{total}</span>
           </p>
         ) : null}
+        {recon ? (
+          <div className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-xs text-zinc-700">
+            <div className="font-medium text-zinc-800">Σ amounts (match leaderboard totals)</div>
+            <ul className="mt-2 grid gap-1 font-mono">
+              <li>All RewardTx summed: <b>{recon.mintGrandTotal}</b></li>
+              <li>Mints on epochs that already have a block #: {recon.mintSumEpochAttachedToConfirmedBlock}</li>
+              <li>
+                Mints waiting for settle / block #:{" "}
+                <b>{recon.mintSumEpochNotYetAnchoredAsBlock}</b>
+              </li>
+            </ul>
+          </div>
+        ) : null}
       </div>
+
+      {pending.length ? (
+        <div className="overflow-hidden rounded-2xl border border-amber-200 bg-amber-50/80">
+          <div className="border-b border-amber-200 bg-amber-100/90 px-4 py-3 text-sm font-medium text-amber-950">
+            Pending mints (no block # yet — same tokens already on leaderboard)
+          </div>
+          <table className="w-full text-left text-sm">
+            <thead className="border-b bg-amber-100/60 text-xs uppercase tracking-wide text-amber-900/80">
+              <tr>
+                <th className="px-4 py-2 font-medium">To</th>
+                <th className="px-4 py-2 font-medium">Amt</th>
+                <th className="px-4 py-2 font-medium hidden sm:table-cell">Reason</th>
+                <th className="px-4 py-2 font-medium">Epoch phase</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pending.map((p, i) => (
+                <tr key={`${p.epochId}-${p.createdAt}-${i}`} className="border-b border-amber-100 last:border-0">
+                  <td className="px-4 py-2">
+                    <code className="text-xs">{p.userId}</code>
+                  </td>
+                  <td className="px-4 py-2 font-mono">{p.amount}</td>
+                  <td className="hidden px-4 py-2 sm:table-cell">
+                    <code className="break-all text-[10px] text-zinc-600">{p.reason}</code>
+                  </td>
+                  <td className="px-4 py-2 text-xs capitalize text-zinc-700">{p.epochStatus}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
 
       <div className="overflow-hidden rounded-2xl border bg-white">
         <table className="w-full text-left text-sm">
@@ -62,6 +137,7 @@ export default function ExplorerPage() {
             <tr>
               <th className="px-4 py-3 font-medium">Block</th>
               <th className="px-4 py-3 font-medium">Winner</th>
+              <th className="px-4 py-3 font-medium">Σ mint</th>
               <th className="px-4 py-3 font-medium">drand round</th>
               <th className="hidden px-4 py-3 font-medium md:table-cell">Epoch</th>
               <th className="hidden px-4 py-3 font-medium lg:table-cell">≈ settled</th>
@@ -84,6 +160,14 @@ export default function ExplorerPage() {
                   ) : (
                     <span className="text-zinc-400">—</span>
                   )}
+                </td>
+                <td className="px-4 py-3 align-top font-mono text-zinc-800">
+                  {typeof b.tokensMintedTotal === "number" ? b.tokensMintedTotal : "—"}
+                  {typeof b.rewardTxCount === "number" && b.rewardTxCount > 1 ? (
+                    <span className="ml-1 text-[10px] font-normal text-amber-700" title="Multiple RewardTx on this epoch (e.g. legacy + draw)">
+                      ({b.rewardTxCount} tx)
+                    </span>
+                  ) : null}
                 </td>
                 <td className="px-4 py-3 align-top font-mono text-zinc-600">
                   {b.drandRound ?? "—"}
