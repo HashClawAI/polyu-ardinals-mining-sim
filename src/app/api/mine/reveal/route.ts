@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireStudentId } from "@/lib/auth";
-import { computeCommitHash, drawWinnerIndex, ensureAssignment, ensureCurrentEpoch, fetchDrandLatest } from "@/lib/epoch";
+import { computeCommitHash, drawWinnerIndex, ensureCurrentEpoch, fetchDrandLatest } from "@/lib/epoch";
 
 const Body = z.object({
   payload: z.unknown(),
@@ -62,7 +62,26 @@ export async function POST(req: Request) {
         return { reveal, instantRewarded: false };
       }
 
-      const assignment = await ensureAssignment(epoch.id, studentId);
+      // IMPORTANT: keep everything inside this transaction (avoid global prisma client here)
+      let assignment = await tx.assignment.findUnique({
+        where: { epochId_userId: { epochId: epoch.id, userId: studentId } },
+      });
+      if (!assignment) {
+        const activeQuestions = await tx.question.findMany({
+          where: { active: true },
+          select: { id: true },
+        });
+        const pool = activeQuestions.map((q) => q.id);
+        const count = Math.min(3, Math.max(1, 1 + Math.floor(Math.random() * 3)));
+        const picked: string[] = [];
+        while (picked.length < Math.min(count, pool.length) && pool.length > 0) {
+          const i = Math.floor(Math.random() * pool.length);
+          picked.push(pool.splice(i, 1)[0]);
+        }
+        assignment = await tx.assignment.create({
+          data: { epochId: epoch.id, userId: studentId, questionIds: picked },
+        });
+      }
       const qIds = assignment.questionIds ?? [];
       const answers = (parsed.data.payload as any)?.answers as Record<string, unknown> | undefined;
 
