@@ -101,16 +101,29 @@ export default function ExplorerPage() {
 
       {pending.length ? (
         <div className="overflow-hidden rounded-2xl border border-amber-200 bg-amber-50/80">
-          <div className="border-b border-amber-200 bg-amber-100/90 px-4 py-3 text-sm font-medium text-amber-950">
-            Pending mints (no block # yet — same tokens already on leaderboard)
+          <div className="border-b border-amber-200 bg-amber-100/90 px-4 py-3 text-amber-950">
+            <div className="text-sm font-medium">待挂块的发币 / Pending mints</div>
+            <p className="mt-2 text-xs leading-relaxed text-amber-900/90">
+              这类记录<strong>已经写入数据库并计入排行榜</strong>（榜单上的积分会多于「已有编号区块」行数——直到本条 settle
+              进块）。系统约定：<strong>编号区块仅在 epoch settle 后才分配</strong>；在{" "}
+              <code className="rounded bg-white/80 px-0.5">reveal</code>{" "}
+              阶段开奖只会先产生 RewardTx，等本轮 reveal 时间结束并完成 settle（自动{" "}
+              <code className="rounded bg-white/80 px-0.5">/api/cron/tick</code>{" "}
+              或 Mine 页 <strong>Tick (dev)</strong>）后，该行会从这里消失并出现在下面的区块列表中。
+            </p>
+            <p className="mt-2 text-[11px] leading-relaxed text-amber-900/75">
+              Same tokens are already on the leaderboard. They show here until reveal ends and the epoch
+              settles—then they move into a numbered block.
+            </p>
           </div>
           <table className="w-full text-left text-sm">
             <thead className="border-b bg-amber-100/60 text-xs uppercase tracking-wide text-amber-900/80">
               <tr>
                 <th className="px-4 py-2 font-medium">To</th>
                 <th className="px-4 py-2 font-medium">Amt</th>
+                <th className="hidden px-4 py-2 font-medium lg:table-cell">Reveal ends (~settle)</th>
                 <th className="px-4 py-2 font-medium hidden sm:table-cell">Reason</th>
-                <th className="px-4 py-2 font-medium">Epoch phase</th>
+                <th className="px-4 py-2 font-medium">Phase</th>
               </tr>
             </thead>
             <tbody>
@@ -120,6 +133,9 @@ export default function ExplorerPage() {
                     <code className="text-xs">{p.userId}</code>
                   </td>
                   <td className="px-4 py-2 font-mono">{p.amount}</td>
+                  <td className="hidden px-4 py-2 font-mono text-xs text-zinc-700 whitespace-nowrap lg:table-cell">
+                    {p.revealEndsAt ? new Date(p.revealEndsAt).toLocaleString() : "—"}
+                  </td>
                   <td className="hidden px-4 py-2 sm:table-cell">
                     <code className="break-all text-[10px] text-zinc-600">{p.reason}</code>
                   </td>
