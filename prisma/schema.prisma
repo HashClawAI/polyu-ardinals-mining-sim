@@ -1,0 +1,133 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum EpochStatus {
+  commit
+  reveal
+  settled
+}
+
+enum QuestionType {
+  mcq
+  short
+}
+
+model User {
+  /// 学号（教学版：学号视作“公钥标识”）
+  id         String   @id
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @updatedAt
+
+  assignments Assignment[]
+  commits     Commit[]
+  reveals     Reveal[]
+  rewardTxs   RewardTx[]
+}
+
+model Question {
+  id         String       @id @default(cuid())
+  type       QuestionType
+  prompt     String
+  options    Json?
+  answerKey  String
+  tags       String[]     @default([])
+  difficulty Int          @default(1)
+  active     Boolean      @default(true)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+}
+
+model Epoch {
+  id              String     @id @default(cuid())
+  status          EpochStatus
+  commitEndsAt    DateTime
+  revealEndsAt    DateTime
+
+  drandRound      Int?
+  drandRandomness String?
+  drandSignature  String?
+  drandBeaconId   String?
+
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  assignments     Assignment[]
+  commits         Commit[]
+  reveals         Reveal[]
+  rewardTxs       RewardTx[]
+
+  @@index([status, commitEndsAt])
+  @@index([status, revealEndsAt])
+}
+
+model Assignment {
+  id          String   @id @default(cuid())
+  epochId     String
+  userId      String
+  questionIds String[]
+  createdAt   DateTime @default(now())
+
+  epoch Epoch @relation(fields: [epochId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([epochId, userId])
+  @@index([userId, createdAt])
+}
+
+model Commit {
+  id         String   @id @default(cuid())
+  epochId    String
+  userId     String
+  commitHash String
+  submittedAt DateTime @default(now())
+
+  epoch Epoch @relation(fields: [epochId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([epochId, userId])
+  @@index([epochId, submittedAt])
+}
+
+model Reveal {
+  id        String   @id @default(cuid())
+  epochId   String
+  userId    String
+  payload   Json
+  salt      String
+  isValid   Boolean  @default(false)
+  isCorrect Boolean  @default(false)
+  gradedAt  DateTime?
+  createdAt DateTime @default(now())
+
+  epoch Epoch @relation(fields: [epochId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([epochId, userId])
+  @@index([epochId, isValid, isCorrect])
+  @@index([userId, createdAt])
+}
+
+model RewardTx {
+  id        String   @id @default(cuid())
+  epochId   String
+  userId    String
+  amount    Int
+  reason    String
+  createdAt DateTime @default(now())
+
+  epoch Epoch @relation(fields: [epochId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([epochId, createdAt])
+}
