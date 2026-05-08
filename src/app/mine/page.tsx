@@ -36,6 +36,7 @@ export default function MinePage() {
   const [salt, setSalt] = useState<string>("");
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
 
   useEffect(() => {
     let stop = false;
@@ -53,8 +54,15 @@ export default function MinePage() {
       }
     }
     load().catch((e) => setErr(e instanceof Error ? e.message : "UNKNOWN"));
+
+    const t1 = window.setInterval(() => setNowMs(Date.now()), 250);
+    const t2 = window.setInterval(() => {
+      load().catch(() => {});
+    }, 2000);
     return () => {
       stop = true;
+      window.clearInterval(t1);
+      window.clearInterval(t2);
     };
   }, []);
 
@@ -65,6 +73,7 @@ export default function MinePage() {
     setMsg(null);
     if (!me) throw new Error("NOT_LOGGED_IN");
     if (!epoch) throw new Error("NO_EPOCH");
+    if (epoch.status !== "commit") throw new Error("NOT_IN_COMMIT_PHASE");
 
     const secret = getClientSecret(me);
     const s = await deriveSalt(secret, epoch.id);
@@ -87,6 +96,8 @@ export default function MinePage() {
   async function doReveal() {
     setErr(null);
     setMsg(null);
+    if (!epoch) throw new Error("NO_EPOCH");
+    if (epoch.status !== "reveal") throw new Error("NOT_IN_REVEAL_PHASE");
     if (!salt) throw new Error("MISSING_SALT (commit first on this device)");
 
     const res = await fetch("/api/mine/reveal", {
@@ -107,6 +118,15 @@ export default function MinePage() {
     const e2 = await fetch("/api/epoch/current").then((r) => r.json());
     setEpoch(e2.epoch);
   }
+
+  const status = (epoch?.status as EpochStatus | undefined) ?? undefined;
+  const commitEndsAtMs = epoch?.commitEndsAt ? new Date(epoch.commitEndsAt).getTime() : null;
+  const revealEndsAtMs = epoch?.revealEndsAt ? new Date(epoch.revealEndsAt).getTime() : null;
+
+  const commitLeftSec =
+    commitEndsAtMs === null ? null : Math.max(0, Math.ceil((commitEndsAtMs - nowMs) / 1000));
+  const revealLeftSec =
+    revealEndsAtMs === null ? null : Math.max(0, Math.ceil((revealEndsAtMs - nowMs) / 1000));
 
   if (err) {
     return (
@@ -133,16 +153,39 @@ export default function MinePage() {
           </div>
         </div>
 
+        <div className="mt-3 rounded-xl border bg-zinc-50 px-4 py-3 text-sm text-zinc-700">
+          {status === "commit" ? (
+            <div>
+              Commit phase. Time left:{" "}
+              <span className="font-mono">{commitLeftSec === null ? "—" : `${commitLeftSec}s`}</span>
+            </div>
+          ) : status === "reveal" ? (
+            <div>
+              Reveal phase. Time left:{" "}
+              <span className="font-mono">{revealLeftSec === null ? "—" : `${revealLeftSec}s`}</span>
+            </div>
+          ) : status === "settled" ? (
+            <div>
+              Settled. A new epoch will be created automatically after this epoch’s reveal end time. If
+              you’re demoing in class, you can click <b>Tick (dev)</b> and refresh.
+            </div>
+          ) : (
+            <div>Loading epoch…</div>
+          )}
+        </div>
+
         <div className="mt-4 flex flex-wrap gap-3">
           <button
             onClick={() => doCommit().catch((e) => setErr(String(e)))}
-            className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+            disabled={status !== "commit"}
+            className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             Commit
           </button>
           <button
             onClick={() => doReveal().catch((e) => setErr(String(e)))}
-            className="rounded-xl border px-4 py-2 text-sm font-medium"
+            disabled={status !== "reveal"}
+            className="rounded-xl border px-4 py-2 text-sm font-medium disabled:opacity-50"
           >
             Reveal
           </button>
