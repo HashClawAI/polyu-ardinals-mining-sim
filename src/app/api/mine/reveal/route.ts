@@ -2,7 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireStudentId } from "@/lib/auth";
-import { computeCommitHash, drawWinnerIndex, ensureCurrentEpoch, fetchDrandLatest } from "@/lib/epoch";
+import {
+  computeCommitHash,
+  drawWinnerIndex,
+  ensureCurrentEpoch,
+  fetchDrandLatest,
+  realtimeDrawReason,
+} from "@/lib/epoch";
 
 const Body = z.object({
   payload: z.unknown(),
@@ -118,7 +124,7 @@ export async function POST(req: Request) {
         };
 
       // If this epoch already did a realtime draw, don't repeat.
-      const drawReason = `epoch:${epoch.id} realtime_draw`;
+      const drawReason = realtimeDrawReason(epoch.id);
       const existingDraw = await tx.rewardTx.findFirst({
         where: { epochId: epoch.id, reason: drawReason },
         select: { id: true, userId: true },

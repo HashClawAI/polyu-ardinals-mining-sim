@@ -15,6 +15,11 @@ export type DrandBeacon = {
   previous_signature?: string;
 };
 
+/** Matches `RewardTx.reason` minted by reveal-time draw (`src/app/api/mine/reveal/route.ts`). */
+export function realtimeDrawReason(epochId: string) {
+  return `epoch:${epochId} realtime_draw`;
+}
+
 function envInt(name: string, fallback: number) {
   const raw = process.env[name];
   if (!raw) return fallback;

@@ -37,6 +37,8 @@ export default function MinePage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
+  /** 来自 /api/epoch/current，开奖后所有在线学生轮询都能看到 */
+  const [realtimeDrawWinner, setRealtimeDrawWinner] = useState<string | null>(null);
 
   useEffect(() => {
     let stop = false;
@@ -51,6 +53,9 @@ export default function MinePage() {
       if (!stop) {
         setEpoch(data.epoch);
         setQuestions(data.questions);
+        setRealtimeDrawWinner(
+          typeof data.realtimeDrawWinner === "string" ? data.realtimeDrawWinner : null,
+        );
       }
     }
     load().catch((e) => setErr(e instanceof Error ? e.message : "UNKNOWN"));
@@ -220,11 +225,27 @@ export default function MinePage() {
             <div>
               Reveal phase. Time left:{" "}
               <span className="font-mono">{revealLeftSec === null ? "—" : `${revealLeftSec}s`}</span>
+              {realtimeDrawWinner ? (
+                <div className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-emerald-900">
+                  Round winner (realtime draw):{" "}
+                  <code className="rounded bg-white px-1 font-mono">{realtimeDrawWinner}</code>
+                </div>
+              ) : (
+                <div className="mt-2 text-zinc-500">
+                  Winner appears here after the first valid, all-correct reveal triggers the draw.
+                </div>
+              )}
             </div>
           ) : status === "settled" ? (
             <div>
               Settled. A new epoch will be created automatically after this epoch’s reveal end time. If
               you’re demoing in class, you can click <b>Tick (dev)</b> and refresh.
+              {realtimeDrawWinner ? (
+                <div className="mt-2 rounded-lg bg-zinc-100 px-3 py-2 text-zinc-800">
+                  Round winner was:{" "}
+                  <code className="rounded bg-white px-1 font-mono">{realtimeDrawWinner}</code>
+                </div>
+              ) : null}
             </div>
           ) : (
             <div>Loading epoch…</div>

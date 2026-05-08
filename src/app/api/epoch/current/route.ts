@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { ensureCurrentEpoch, ensureAssignment, tickAndSettle } from "@/lib/epoch";
+import { ensureCurrentEpoch, ensureAssignment, tickAndSettle, realtimeDrawReason } from "@/lib/epoch";
 import { requireStudentId } from "@/lib/auth";
 
 export async function GET() {
@@ -11,17 +11,24 @@ export async function GET() {
     const epoch = await ensureCurrentEpoch();
     const assignment = await ensureAssignment(epoch.id, studentId);
 
-    const questions = await prisma.question.findMany({
-      where: { id: { in: assignment.questionIds } },
-      select: {
-        id: true,
-        type: true,
-        prompt: true,
-        options: true,
-        tags: true,
-        difficulty: true,
-      },
-    });
+    const drawReason = realtimeDrawReason(epoch.id);
+    const [questions, realtimeDrawTx] = await Promise.all([
+      prisma.question.findMany({
+        where: { id: { in: assignment.questionIds } },
+        select: {
+          id: true,
+          type: true,
+          prompt: true,
+          options: true,
+          tags: true,
+          difficulty: true,
+        },
+      }),
+      prisma.rewardTx.findFirst({
+        where: { epochId: epoch.id, reason: drawReason },
+        select: { userId: true },
+      }),
+    ]);
 
     return NextResponse.json({
       ok: true,
@@ -33,6 +40,8 @@ export async function GET() {
         drandRound: epoch.drandRound,
         drandRandomness: epoch.drandRandomness,
       },
+      /** 本轮 reveal 实时开奖的中奖学号（所有人轮询可见，不仅限于刚点 Reveal 的响应） */
+      realtimeDrawWinner: realtimeDrawTx?.userId ?? null,
       assignment: { questionIds: assignment.questionIds },
       questions,
     });
