@@ -54,6 +54,9 @@ export default function RootLayout({
               <Link className="hover:text-zinc-950" href="/explorer">
                 Explorer
               </Link>
+              <Link className="hover:text-zinc-950 text-amber-800" href="/admin">
+                Admin
+              </Link>
             </nav>
           </div>
         </header>

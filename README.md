@@ -36,12 +36,11 @@ cp .env.example .env
 
 若你选择 Prisma Dev，请运行 `npx prisma dev ls` 并把列表里 `TCP` 的连接串填到 `.env` 的 `DATABASE_URL`。
 
-### Epoch timing (commit / reveal)
+### Epoch timing & assignment (commit / reveal / 难度)
 
-课堂节奏可以通过环境变量配置（秒）：
+首选在 **`/admin`**（需 `ADMIN_KEY`）里改 **Runtime configuration**：Commit/Reveal 秒数、每人抽题数量区间、题库 **difficulty** 允许范围。保存后**下一轮起新建的 epoch**会使用新时长；抽题规则立即影响**新分配**的题目。
 
-- `EPOCH_COMMIT_SECONDS`：commit 窗口（例如 `60`）
-- `EPOCH_REVEAL_SECONDS`：reveal 窗口（例如 `45`）
+首次启动且数据库里还没有配置行时，`EPOCH_COMMIT_SECONDS` / `EPOCH_REVEAL_SECONDS` 会用来**生成默认** `AppConfig`，之后以 Admin 里保存的为准。
 
 ### 3) Initialize DB schema
 

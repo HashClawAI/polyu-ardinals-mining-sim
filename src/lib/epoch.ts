@@ -1,13 +1,9 @@
 import type { Prisma } from "@prisma/client";
+import { getAppConfig, pickRandomQuestionIdsForNewAssignment } from "@/lib/appConfig";
 import { prisma } from "@/lib/prisma";
 import { sha256Hex, hexToBigInt } from "@/lib/crypto";
 import { stableStringify } from "@/lib/stableJson";
 // systemState is updated during settlement to track \"block height\"
-
-const DEFAULT_COMMIT_SECONDS = 150;
-const DEFAULT_REVEAL_SECONDS = 90;
-const DEFAULT_QUESTIONS_MIN = 1;
-const DEFAULT_QUESTIONS_MAX = 3;
 
 export type DrandBeacon = {
   round: number;
@@ -21,18 +17,11 @@ export function realtimeDrawReason(epochId: string) {
   return `epoch:${epochId} realtime_draw`;
 }
 
-function envInt(name: string, fallback: number) {
-  const raw = process.env[name];
-  if (!raw) return fallback;
-  const n = Number(raw);
-  if (!Number.isFinite(n) || n <= 0) return fallback;
-  return Math.floor(n);
-}
-
-function getEpochDurationsSeconds() {
+async function getEpochDurationsSeconds() {
+  const c = await getAppConfig();
   return {
-    commitSeconds: envInt("EPOCH_COMMIT_SECONDS", DEFAULT_COMMIT_SECONDS),
-    revealSeconds: envInt("EPOCH_REVEAL_SECONDS", DEFAULT_REVEAL_SECONDS),
+    commitSeconds: c.epochCommitSeconds,
+    revealSeconds: c.epochRevealSeconds,
   };
 }
 
@@ -52,7 +41,7 @@ export async function ensureCurrentEpoch(now = new Date()) {
 }
 
 async function createEpoch(now: Date) {
-  const { commitSeconds, revealSeconds } = getEpochDurationsSeconds();
+  const { commitSeconds, revealSeconds } = await getEpochDurationsSeconds();
   const commitEndsAt = new Date(now.getTime() + commitSeconds * 1000);
   const revealEndsAt = new Date(commitEndsAt.getTime() + revealSeconds * 1000);
   return await prisma.epoch.create({
@@ -70,22 +59,7 @@ export async function ensureAssignment(epochId: string, studentId: string) {
   });
   if (existing) return existing;
 
-  const activeQuestions = await prisma.question.findMany({
-    where: { active: true },
-    select: { id: true },
-  });
-
-  const count = Math.min(
-    DEFAULT_QUESTIONS_MAX,
-    Math.max(DEFAULT_QUESTIONS_MIN, 1 + Math.floor(Math.random() * DEFAULT_QUESTIONS_MAX)),
-  );
-
-  const pool = activeQuestions.map((q) => q.id);
-  const picked: string[] = [];
-  while (picked.length < Math.min(count, pool.length) && pool.length > 0) {
-    const i = Math.floor(Math.random() * pool.length);
-    picked.push(pool.splice(i, 1)[0]);
-  }
+  const picked = await pickRandomQuestionIdsForNewAssignment(prisma);
 
   return await prisma.assignment.create({
     data: {

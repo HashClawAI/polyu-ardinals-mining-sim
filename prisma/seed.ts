@@ -138,6 +138,44 @@ async function main() {
       tags: ["math-basic"],
       difficulty: 1,
     },
+    {
+      type: "mcq" as const,
+      prompt: "长方形长 8、宽 5，周长是？",
+      options: {
+        choices: [
+          { id: "A", text: "13" },
+          { id: "B", text: "26" },
+          { id: "C", text: "40" },
+          { id: "D", text: "52" },
+        ],
+      },
+      answerKey: "B",
+      tags: ["math-bank", "geometry"],
+      difficulty: 2,
+    },
+    {
+      type: "mcq" as const,
+      prompt: "化简：24 与 36 的最大公约数是？",
+      options: {
+        choices: [
+          { id: "A", text: "6" },
+          { id: "B", text: "8" },
+          { id: "C", text: "12" },
+          { id: "D", text: "18" },
+        ],
+      },
+      answerKey: "C",
+      tags: ["math-bank", "number-theory"],
+      difficulty: 3,
+    },
+    {
+      type: "short" as const,
+      prompt: "若三角形三边为 3、4、5，则面积为？（只填数字）",
+      options: null,
+      answerKey: "6",
+      tags: ["math-bank", "geometry"],
+      difficulty: 3,
+    },
   ];
 
   // Avoid duplicates on repeated seeding: use (prompt, answerKey) as a soft identity.

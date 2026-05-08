@@ -9,7 +9,7 @@ const QuestionIn = z.object({
   options: z.any().nullable().optional(),
   answerKey: z.string().min(1),
   tags: z.array(z.string()).optional().default([]),
-  difficulty: z.number().int().min(1).max(5).optional().default(1),
+  difficulty: z.number().int().min(1).max(10).optional().default(1),
   active: z.boolean().optional().default(true),
 });
 
