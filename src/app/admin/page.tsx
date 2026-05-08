@@ -51,6 +51,13 @@ export default function AdminPage() {
     setOut(JSON.stringify(json, null, 2));
   }
 
+  async function doInitSystem() {
+    setOut("");
+    const res = await fetch("/api/admin/system/init", { method: "POST", headers });
+    const json = await res.json();
+    setOut(JSON.stringify(json, null, 2));
+  }
+
   return (
     <div className="grid gap-6">
       <section className="rounded-2xl border bg-white p-6">
@@ -66,6 +73,21 @@ export default function AdminPage() {
             onChange={(e) => setAdminKey(e.target.value)}
             placeholder="dev-admin"
           />
+        </div>
+      </section>
+
+      <section className="rounded-2xl border bg-white p-6">
+        <h2 className="font-semibold">System init</h2>
+        <p className="mt-2 text-sm text-zinc-700">
+          将全局 <b>Block</b> 计数重置为 0，并清空 epoch/commit/reveal/reward 等运行数据（题库保留）。
+        </p>
+        <div className="mt-3">
+          <button
+            className="rounded-xl border px-4 py-2 text-sm font-medium"
+            onClick={() => doInitSystem()}
+          >
+            Initialize system (reset block=0)
+          </button>
         </div>
       </section>
 

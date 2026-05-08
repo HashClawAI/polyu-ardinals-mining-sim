@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { sha256Hex, hexToBigInt } from "@/lib/crypto";
 import { stableStringify } from "@/lib/stableJson";
+// systemState is updated during settlement to track \"block height\"
 
 const DEFAULT_COMMIT_SECONDS = 150;
 const DEFAULT_REVEAL_SECONDS = 90;
@@ -252,7 +253,21 @@ async function settleEpoch(epochId: string) {
       });
     }
 
-    await tx.epoch.update({ where: { id: epochId }, data: { status: "settled" } });
+    // Commit a \"block\": assign blockNumber and bump global blockHeight.
+    const system = await tx.systemState.upsert({
+      where: { id: "global" },
+      update: {},
+      create: { id: "global", blockHeight: 0 },
+      select: { blockHeight: true },
+    });
+    await tx.epoch.update({
+      where: { id: epochId },
+      data: { status: "settled", blockNumber: system.blockHeight },
+    });
+    await tx.systemState.update({
+      where: { id: "global" },
+      data: { blockHeight: system.blockHeight + 1 },
+    });
   });
 }
 

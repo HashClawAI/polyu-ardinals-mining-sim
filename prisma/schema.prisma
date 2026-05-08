@@ -49,6 +49,7 @@ model Question {
 
 model Epoch {
   id              String     @id @default(cuid())
+  blockNumber     Int?
   status          EpochStatus
   commitEndsAt    DateTime
   revealEndsAt    DateTime
@@ -68,6 +69,14 @@ model Epoch {
 
   @@index([status, commitEndsAt])
   @@index([status, revealEndsAt])
+}
+
+model SystemState {
+  /// Singleton row (id always \"global\")
+  id          String   @id
+  blockHeight Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Assignment {
