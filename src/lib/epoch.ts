@@ -16,6 +16,21 @@ export type DrandBeacon = {
   previous_signature?: string;
 };
 
+function envInt(name: string, fallback: number) {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.floor(n);
+}
+
+function getEpochDurationsSeconds() {
+  return {
+    commitSeconds: envInt("EPOCH_COMMIT_SECONDS", DEFAULT_COMMIT_SECONDS),
+    revealSeconds: envInt("EPOCH_REVEAL_SECONDS", DEFAULT_REVEAL_SECONDS),
+  };
+}
+
 export async function ensureCurrentEpoch(now = new Date()) {
   const latest = await prisma.epoch.findFirst({
     orderBy: { createdAt: "desc" },
@@ -32,8 +47,9 @@ export async function ensureCurrentEpoch(now = new Date()) {
 }
 
 async function createEpoch(now: Date) {
-  const commitEndsAt = new Date(now.getTime() + DEFAULT_COMMIT_SECONDS * 1000);
-  const revealEndsAt = new Date(commitEndsAt.getTime() + DEFAULT_REVEAL_SECONDS * 1000);
+  const { commitSeconds, revealSeconds } = getEpochDurationsSeconds();
+  const commitEndsAt = new Date(now.getTime() + commitSeconds * 1000);
+  const revealEndsAt = new Date(commitEndsAt.getTime() + revealSeconds * 1000);
   return await prisma.epoch.create({
     data: {
       status: "commit",

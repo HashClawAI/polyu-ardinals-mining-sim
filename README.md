@@ -34,6 +34,13 @@ cp .env.example .env
 
 若你选择 Prisma Dev，请运行 `npx prisma dev ls` 并把列表里 `TCP` 的连接串填到 `.env` 的 `DATABASE_URL`。
 
+### Epoch timing (commit / reveal)
+
+课堂节奏可以通过环境变量配置（秒）：
+
+- `EPOCH_COMMIT_SECONDS`：commit 窗口（例如 `60`）
+- `EPOCH_REVEAL_SECONDS`：reveal 窗口（例如 `45`）
+
 ### 3) Initialize DB schema
 
 ```bash
