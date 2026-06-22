@@ -1,6 +1,6 @@
-# PolyU Ardinals Mining Sim — Rules
+# Mining Simulation- PolyU AF5644 — Rules
 
-本网站是一个“类 Ardinals”的**教学版模拟挖矿**：不拼算力，按回合提交承诺（commit），再公开答案（reveal），最后用**可验证随机数**抽奖发放代币奖励。
+本网站是一个**教学版模拟挖矿**：不拼算力，按回合提交承诺（commit），再公开答案（reveal），最后用**可验证随机数**抽奖发放代币奖励。
 
 ## Identity / Keys
 
@@ -13,12 +13,12 @@
   - `commit`：提交承诺（hash）窗口
   - `reveal`：公开答案 + salt 窗口
   - `settled`：开奖结算完成
-- 推荐时长（可配置）：\n  - `commit` 2–3 分钟\n  - `reveal` 1–2 分钟\n  - 回合总长 3–5 分钟
+- **时长**：在 **`/admin` → Runtime configuration** 中设置 Commit / Reveal 秒数（仅对**之后新创建**的 epoch 生效；当前进行中的 epoch 保持原截止时刻）。首次部署前也可通过环境变量 `EPOCH_COMMIT_SECONDS` / `EPOCH_REVEAL_SECONDS` 生成默认配置。
 
 ## Questions (题目抽取)
 
-- 每个回合，每个参与者随机分配 **1–3 题**（从题库按启用/难度/tag 抽取）。
-- 题目只展示给该参与者，用于降低“直接抄答案”的收益（不追求强防作弊）。
+- 每个参与者在本轮被随机分配 **若干题**，题量区间为 Admin 里配置的 min–max（默认 1–3）；具体题目从**已启用**的题目中按 **difficulty** 落在 Admin 配置的区间内抽取；若区间内无题，则退回为「全部启用题」。
+- 题目只展示给该参与者；`difficulty` 在导入题库时用整数 1–10 标注难度档。
 
 ## Commit (承诺提交)
 
